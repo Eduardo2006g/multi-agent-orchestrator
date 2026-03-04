@@ -20,20 +20,21 @@ def conversational_node(state: MultiAgentState):
 
     user_input = state.get("user_input", "")
     instruction = state.get("delegation_instruction", "")
+    history = state.get("messages", [])
 
     system_prompt = SystemMessage(
         content="Você é uma assistente de IA prestativa e amigável. "
-                "Responda de forma clara, objetiva e útil."
+                "Responda de forma clara, objetiva e útil.\n"
+                f"Siga a instrução do orquestrador: {instruction}"
     )
 
-    response = llm.invoke([
-        system_prompt,
-        HumanMessage(content=user_input)
-    ])
+    messages = [system_prompt] #+ history (descomente para passar o histórico)
+    response = llm.invoke(messages)
 
     print(f"[Conversational Agent] Instrução recebida: {instruction}")
     print(f"[Conversational Agent] Resposta gerada: {response.content}")
 
     return {
+        "messages": [response],
         "final_response": response.content
     }

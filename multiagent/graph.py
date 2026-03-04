@@ -86,4 +86,5 @@ builder.add_conditional_edges("tools", route_after_tools)
 builder.add_edge("format_final_output", END)
 builder.add_edge("conversational_agent", END)
 
-app = builder.compile()
+# O grafo será compilado no main.py com o checkpointer
+# app = builder.compile()

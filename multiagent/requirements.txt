@@ -3,3 +3,5 @@ langgraph
 langchain-openai
 pydantic
 python-dotenv
+redis
+langgraph-checkpoint-redis
