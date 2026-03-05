@@ -4,15 +4,14 @@ import warnings
 from dotenv import load_dotenv
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langchain_core.messages import HumanMessage
+from graph import builder
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
 load_dotenv()
 
-from graph import builder
-
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
-TTL_CONFIG = {"default_ttl": 3600, "refresh_on_read": False}
+TTL_CONFIG = {"default_ttl": 5, "refresh_on_read": False}
 
 async def run_test(app, user_input: str, config: dict):
     print(f"\n{'-'*50}")

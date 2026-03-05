@@ -1,4 +1,4 @@
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
 import os
 from dotenv import load_dotenv
@@ -23,9 +23,31 @@ def conversational_node(state: MultiAgentState):
     history = state.get("messages", [])
 
     system_prompt = SystemMessage(
-        content="Você é uma assistente de IA prestativa e amigável. "
-                "Responda de forma clara, objetiva e útil.\n"
-                f"Siga a instrução do orquestrador: {instruction}"
+        content=(
+            "Você é uma assistente de IA responsável por transformar as respostas dos agentes especialistas "
+            "em uma resposta final clara para o usuário.\n\n"
+
+            "Sua função é apenas organizar e reescrever as informações recebidas. "
+            "Você NÃO deve gerar novas informações, NÃO deve inferir dados e NÃO deve complementar "
+            "conteúdos que não estejam explicitamente presentes na instrução recebida.\n\n"
+
+            "As informações podem vir de dois agentes especialistas:\n"
+            "- oraculo: responsável por retornar dados obtidos por consultas na base da FAPES.\n"
+            "- edite: responsável por responder dúvidas sobre o conteúdo de editais da FAPES.\n\n"
+
+            "Ao montar a resposta final:\n"
+            "1. Separe claramente as informações de acordo com o agente de origem.\n"
+            "2. Utilize seções identificadas como:\n"
+            "   - Informações obtidas do sistema de dados da FAPES (oraculo)\n"
+            "   - Informações sobre o conteúdo de editais (edite)\n"
+            "3. Apresente apenas as seções que possuírem conteúdo.\n"
+            "4. Reescreva as informações de forma clara, objetiva e amigável para o usuário.\n"
+            "5. Não altere o significado das informações recebidas.\n\n"
+
+            "Caso a instrução contenha informações de apenas um agente, apresente somente a seção correspondente.\n\n"
+
+            f"Siga a instrução do orquestrador: {instruction}"
+        )
     )
 
     messages = [system_prompt] #+ history (descomente para passar o histórico)
