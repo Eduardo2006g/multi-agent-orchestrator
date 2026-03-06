@@ -7,7 +7,7 @@ from state import MultiAgentState
 load_dotenv()
 
 llm = ChatOpenAI(
-    model="gpt-4.1-mini",
+    model="gpt-4.1-nano",
     api_key=os.getenv("LLM_API_KEY"),
     temperature=0.0
 )
@@ -16,9 +16,6 @@ def conversational_node(state: MultiAgentState):
     # Nó responsável por tratar mensagens classificadas como 'conversational'.
     # Não utiliza ferramentas.
     # Retorna resposta final diretamente ao usuário.
-
-
-    user_input = state.get("user_input", "")
     instruction = state.get("delegation_instruction", "")
     history = state.get("messages", [])
 
@@ -50,7 +47,7 @@ def conversational_node(state: MultiAgentState):
         )
     )
 
-    messages = [system_prompt] #+ history (descomente para passar o histórico)
+    messages = [system_prompt] + history #(descomente para passar o histórico)
     response = llm.invoke(messages)
 
     print(f"[Conversational Agent] Instrução recebida: {instruction}")

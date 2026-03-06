@@ -41,9 +41,12 @@ def oracle_agent_node(state: MultiAgentState):
                 f"Dados brutos retornados: {data_rows}"
             )
 
+        print("[Oráculo API] Resposta do Oráculo: ", final_content)
+
         return {"messages": [final_content]}
 
 
     except requests.exceptions.RequestException as e:
         error_msg = f"Houve uma falha de conexão ao consultar a base do Oráculo: {str(e)}"
+        print("[Oráculo API] Erro ao conectar com o Oráculo: ", error_msg)
         return {"messages": [error_msg]}

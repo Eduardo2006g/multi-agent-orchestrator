@@ -14,7 +14,6 @@ llm = ChatOpenAI(
 )
 
 def orchestrator_node(state: MultiAgentState):
-    user_input = state.get("user_input", "")
     
     system_prompt = """
         Você é o ORQUESTRADOR central de um sistema multiagente.
