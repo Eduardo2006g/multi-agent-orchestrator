@@ -50,3 +50,4 @@ def oracle_agent_node(state: MultiAgentState):
         error_msg = f"Houve uma falha de conexão ao consultar a base do Oráculo: {str(e)}"
         print("[Oráculo API] Erro ao conectar com o Oráculo: ", error_msg)
         return {"messages": [error_msg]}
+    

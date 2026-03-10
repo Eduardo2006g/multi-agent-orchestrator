@@ -1,59 +1,90 @@
 import os
-import asyncio
 import warnings
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+from fastapi import FastAPI
+from pydantic import BaseModel
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langchain_core.messages import HumanMessage
 from graph import builder
+from fastapi.middleware.cors import CORSMiddleware
+
+
 
 warnings.filterwarnings("ignore", category=UserWarning)
-
 load_dotenv()
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 TTL_CONFIG = {"default_ttl": 5, "refresh_on_read": False}
 
-async def run_test(app, user_input: str, config: dict):
-    print(f"\n{'-'*50}")
-    print(f"entrada do usuário: {user_input}")
-    
+# Estado global da aplicação
+app_state = {}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Inicializa Redis e grafo UMA VEZ ao subir a aplicação
+    async with AsyncRedisSaver.from_conn_string(REDIS_URL, ttl=TTL_CONFIG) as _checkpointer:
+        await _checkpointer.asetup()
+
+    app_state["graph"] = builder.compile(checkpointer=_checkpointer)
+    app_state["checkpointer"] = _checkpointer
+
+    print("[API] Grafo e Redis inicializados.")
+    yield
+
+    # Cleanup ao encerrar
+    await _checkpointer.__aexit__(None, None, None)
+    print("[API] Redis encerrado.")
+
+app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+        allow_origins=["*"],  # origem do seu frontend
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+)
+
+class ChatRequest(BaseModel):
+    question: str
+    session_id: str = "default"
+
+@app.post("/api/chat")
+async def chat(request: ChatRequest):
+    graph = app_state["graph"]
+    config = {"configurable": {"thread_id": request.session_id}}
+
     initial_state = {
-        "messages": [HumanMessage(content=user_input)],
-        "user_input": user_input,
+        "messages": [HumanMessage(content=request.question)],
+        "user_input": request.question,
         "next_agent": None,
         "delegation_instruction": None,
         "final_response": None
     }
+
+    print(f"\n[API] Pergunta recebida (session: {request.session_id}): {request.question}")
+
+    try:
+        async for output in graph.astream(initial_state, config):
+            for node_name, state_update in output.items():
+                if "next_agent" in state_update:
+                    print(f"-> roteando para: [{state_update['next_agent']}]")
+
+                if "final_response" in state_update and state_update["final_response"]:
+                    return {
+                        "type": "success",
+                        "text": state_update["final_response"]
+                    }
+
+        return {"type": "error", "text": "Nenhuma resposta final gerada."}
+
+    except Exception as e:
+        print(f"[API] Erro: {e}")
+        return {"type": "error", "text": f"Erro interno: {str(e)}"}
     
-    final_state = initial_state
-    
-    async for output in app.astream(initial_state, config):
-        for node_name, state_update in output.items():
-            if "next_agent" in state_update:
-                print(f"-> roteando o controle para: [{state_update['next_agent']}]")
-            final_state = state_update
-            
-            if "final_response" in state_update:
-                return final_state.get('final_response')
-
-async def main():
-    async with AsyncRedisSaver.from_conn_string(REDIS_URL, ttl=TTL_CONFIG) as _checkpointer:
-        await _checkpointer.asetup()
-        
-        _graph = builder.compile(checkpointer=_checkpointer)
-        config = {"configurable": {"thread_id": "test_session_1"}}
-        
-        while True:
-            try:
-                msg = input("\nDigite sua mensagem (ou 'sair'): ")
-            except EOFError:
-                break
-
-            if msg.lower() == "sair":
-                break
-        
-            response = await run_test(_graph, msg, config)
-            print(f"\n[resposta final]: {response}")
-
 if __name__ == "__main__":
-    asyncio.run(main())
+    
+    
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8004)
