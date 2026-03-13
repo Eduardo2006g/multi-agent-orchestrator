@@ -39,13 +39,16 @@ Na raiz do repositório (onde o arquivo `docker-compose.yml` principal se encont
 docker-compose up --build -d
 ```
 
-### 5. Attachment ao Backend do Oráculo
-Depois de subir o backend do oráculo rodar o seguinte comando de modo a iniciar a conversa com o Multi-Orquestrador
+### 5. Consumo da API (Orquestrador)
+Com o sistema rodando, o orquestrador multiagente pode ser consumido via HTTP POST no endpoint `/api/chat`.
 
-- Para o agente principal (multi-orquestrador):
-  ```bash
-  docker attach orchestrator_agent
-  ```
+Exemplo de requisição no terminal:
+
+```bash
+curl -X POST http://localhost:8004/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"user_input": "top 5 projetos por valor pago"}'
+```
 
 ---
 
