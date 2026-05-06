@@ -4,6 +4,7 @@ from state import MultiAgentState
 from router import orchestrator_node
 from agents.conversational_agent import conversational_node
 from langgraph.types import Send
+from langchain_core.messages import AIMessage
 import json
 
 mcp_tools = []
@@ -53,7 +54,7 @@ async def mcp_tool_node(state: MultiAgentState):
 
                     if isinstance(parsed, dict) and "final_content" in parsed:
                         return {
-                            "messages": [f"[{tool_name}]:\n{parsed['final_content']}"],
+                            "messages": [AIMessage(content=f"[{tool_name}]:\n{parsed['final_content']}")],
                             "text_response": parsed.get("text_response"),
                             "sql_used": parsed.get("sql_used"),
                             "graph": parsed.get("data_rows")
@@ -61,31 +62,31 @@ async def mcp_tool_node(state: MultiAgentState):
                 except Exception:
                     pass
                 
-                return {"messages": [f"[{tool_name}]:\n{content_str}"]}
+                return {"messages": [AIMessage(content=f"[{tool_name}]:\n{content_str}")]}
 
             except Exception as e:
-                return {"messages": [f"Erro na ferramenta {tool_name}: {str(e)}"]}
-                
-    return {"messages": [f"Ferramenta MCP {tool_name} não encontrada."]}
+                return {"messages": [AIMessage(content=f"Erro na ferramenta {tool_name}: {str(e)}")]}
+
+    return {"messages": [AIMessage(content=f"Ferramenta MCP {tool_name} não encontrada.")]}
 
 
 def route_from_orchestrator(state: MultiAgentState):
-    # o send permite enviar para múltiplos agentes, e esperar as respostas de todos eles antes de seguir para o próximo nó do grafo (no caso, o agente conversacional)
+    # Se houver ferramentas MCP, o conversational_agent já será chamado
+    # via edge fixa (mcp_tool_node → conversational_agent).
+    # Incluí-lo também no Send causaria dupla execução.
+    has_tool_calls = any(call.intent != "conversational" for call in state["calls"])
+
     sends = []
     for call in state["calls"]:
         intent = call.intent
         if intent == "conversational":
-            sends.append(Send("conversational_agent", {"delegation_instruction": call.delegation_instruction}))
+            if not has_tool_calls:
+                # só envia diretamente se for uma conversa pura (sem ferramentas)
+                sends.append(Send("conversational_agent", {"delegation_instruction": call.delegation_instruction}))
         else:
             sends.append(Send("mcp_tool_node", {"tool_name": intent, "delegation_instruction": call.delegation_instruction}))
     return sends
 
-
-def format_final_output(state: MultiAgentState):
-    messages = state.get("messages", [])
-    if messages:
-        return {"final_response": messages[-1].content}
-    return {}
 
 
 builder = StateGraph(MultiAgentState)
@@ -94,8 +95,6 @@ builder.add_node("orchestrator", orchestrator_node)
 
 builder.add_node("conversational_agent", conversational_node)
 builder.add_node("mcp_tool_node", mcp_tool_node)
-
-builder.add_node("format_final_output", format_final_output)
 
 builder.add_edge(START, "orchestrator")
 
@@ -106,5 +105,4 @@ builder.add_conditional_edges("orchestrator", route_from_orchestrator)
 builder.add_edge("mcp_tool_node", "conversational_agent")
 
 # o agente conversacional é sempre o último da cadeia
-builder.add_edge("conversational_agent", "format_final_output")
-builder.add_edge("format_final_output", END)
+builder.add_edge("conversational_agent", END)

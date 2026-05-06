@@ -36,7 +36,7 @@ def consultar_oraculo(instruction: str) -> str:
             sql_used = None
             data_rows = []
 
-            final_content = f"❌ Erro do Oráculo:\n{text_response}"
+            final_content = f" Erro do Oráculo:\n{text_response}"
 
         else:
             text_response = data.get("text", "")
@@ -67,7 +67,7 @@ def consultar_oraculo(instruction: str) -> str:
         return final_content
 
     except requests.exceptions.RequestException as e:
-        error_msg = f"❌ Falha de conexão com o Oráculo: {str(e)}"
+        error_msg = f" Falha de conexão com o Oráculo: {str(e)}"
         print("[Oráculo API] Erro:", error_msg)
         return error_msg
 
